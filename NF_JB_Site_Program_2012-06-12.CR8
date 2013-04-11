@@ -1,0 +1,321 @@
+  'CR800 Series Datalogger
+' Bob Busey for:
+' Jessie Cable & Bob Bolton
+' CPCRW Transect Site #XX
+' Draft V1.2
+' CR800 PakBus ID 300
+' Creation Dates: 2011-03-31
+' Modified: 2012-04-04, added additional sap flow sensors.
+'           2012-04-27, moved AT/RH to switched 12 volts. (had been on a control port originally)
+'           2012-06-12, added net radiation and wind speed.
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''  SENSOR LIST   ''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' 2 Campbell Scientific CS616 Soil Moisture Sensors
+' 2 Campbell Scientific 107 Temperature Sensors
+' 1 Vaisala HMP45C Air Temperature / Relative Humidity Sensors
+' 1 Texas Electronics TE525MM 0.1mm Precipitation Gage
+' 10 Sap Flow Sensors 
+' 1 wind speed sensors
+' 2 Rebs Q7.1 Net Radiometers
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''  LOGGER WIRING   ''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' SE1 -- AM16/32B COM HI
+' SE2 -- AM16/32B COM LO
+' SE3 -- CS616 #1 Signal 5/10 cmbgs, Green Wire (___ Tape)
+' SE4 -- CS616 #2 Signal 40 cmbgs, Green Wire (___ Tape)
+' SE5 -- 107 #1 Signal 5/10 cmbgs, (____ Tape)
+' SE6 -- 107 #2 Signal 5/10 cmbgs, (____ Tape)
+
+' VX1 -- 107#1 & #2 Excitation (
+' VX2 -- 
+
+' P1 -- TE525MM Signal
+' P2 -- MetOne WS Signal
+' C1 -- AM16/32B CLK
+' C2 -- AM16/32B RES
+' C3 -- CS616 #1 & #2 CTRL
+' C4 -- 
+
+' SW12V -- HMP45C 12V
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''   Sensor Wiring   ''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'' AM16/32B Multiplexer Operating in 2-32 Mode
+'' COM HI -- CR800 SE1
+'' COM LO -- CR800 SE2
+'' CLK -- CR800 C1
+'' RES -- CR800 C2
+'' 12V -- CR800 12V
+'' G -- CR800 G
+
+'' CS616 #1 (____ Tape); 5/10 cm bgs
+'' Orange Wire -- CR800 C3
+'' Green Wire -- CR800 SE3
+'' Red Wire -- CR800 12V
+'' Black Wire -- CR800 G
+'' Clear Wire -- CR800 G
+
+'' CS616 #2 (____ Tape); 40 cm bgs
+'' Orange Wire -- CR800 C3
+'' Green Wire -- CR800 SE4
+'' Red Wire -- CR800 12V
+'' Black Wire -- CR800 G
+'' Clear Wire -- CR800 G
+
+'' 107 Temperature #1 (____ Tape); 5/10 cm bgs
+'' Red Wire -- CR800 SE5
+'' Purple Wire -- CR800 Signal Ground
+'' Black Wire -- CR800 VX1
+'' Clear Wire -- CR800 G
+
+'' 107 Temperature #2 (____ Tape); 5/10 cm bgs
+'' Red Wire -- CR800 SE6
+'' Purple Wire -- CR800 Signal Ground
+'' Black Wire -- CR800 VX1
+'' Clear Wire -- CR800 G
+
+'' TE525MM Precipitation Gage
+'' Black Wire -- CR800 P1
+'' White Wire -- CR800 G
+'' Clear Wire -- CR800 G
+
+'' HMP45C
+'' Red Wire -- CR800 SW12V
+'' Black Wire -- CR800 G
+'' Clear Wire -- CR800 G
+'' Yellow Wire --AM1632B SET#1 HI
+'' Blue Wire -- AM1632B SET#2 HI
+'' White Wire --AM1632B SET#1 LO, Jumper Wire to AM16/32B SET#2 LO
+
+'' Sap Flow Probes
+'' AM16/32B SET 3 to 7
+'' 
+
+'' Sap Flow Voltage Check
+'' AM16/32B SET 8 & 9
+''
+'' Sap Flow Probes -- 2012 (add 5 more)
+'' AM 16/32 10 to 14
+''
+'' Net Radiomesters -- 2012
+'' AM16/32 15 & 16
+
+''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''
+'' Declare Public Variables ''
+''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''
+    Public PTemp, batt_volt, p_sig
+    Public Sap_Diff(5) 
+    Public Sap_Volt(2)
+    Public Sap_Diff2012(5)
+    Public Precip
+    Public AirTemp
+    Public RelativeHumidity
+    Public DewTemp
+    Public CS616_1_per
+    Public CS616_2_per
+    Public SoilTemp_1
+    Public SoilTemp_2
+    Public NetRad1
+    Public NetRad2
+    Public WindSpeed
+
+    Dim i ' incrementer for sap probe loops
+    
+''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''
+'' Define Units for the Output Variables  ''
+''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''
+    Units Precip = mm of Water
+    Units AirTemp = Degrees Celsius
+    Units RelativeHumidity = Percent
+    Units DewTemp = Degrees Celsius
+    Units CS616_1_per = Period
+    Units CS616_2_per = Period
+    Units SoilTemp_1 = Degrees Celsius
+    Units SoilTemp_2 = Degrees Celsius
+    Units batt_volt = Volts DC
+    Units Ptemp = Degrees Celsius
+    Units NetRad1 = milliVolts
+    Units NetRad2 = milliVolts
+    Units WindSpeed = meters per second
+        
+'''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''
+'' Define Data Output Tables ''
+'''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''
+    DataTable (SapFlow,1,-1)
+        DataInterval (0,30,Min,0)
+        Average(5,Sap_Diff(1),IEEE4,False)
+        Average(2,Sap_Volt(1),IEEE4,False)
+        Average(5,Sap_Diff2012(1),IEEE4,False)
+    EndTable
+
+    DataTable (Diagnostic,1,-1)
+        DataInterval (0,60,Min,10)
+        Minimum (1,batt_volt,FP2,False,False)
+        Minimum (1,PTemp,FP2,False,False)
+        Average (1,PTemp,FP2,False)
+        Maximum (1,PTemp,FP2,False,False)
+        Sample (1,p_sig,IEEE4)        
+    EndTable
+
+    DataTable (Met,1,-1)
+        DataInterval(0,30,Min,0)
+        Average (1,AirTemp,FP2,False)
+        Average (1,RelativeHumidity,FP2,False)
+        Average (1,DewTemp,FP2,False)
+        Totalize (1,Precip,FP2,False)
+        Average (1,WindSpeed, fp2,false)
+        Average (1,NetRad1, fp2, false)
+        Average (1,NetRad2, fp2, false)
+    EndTable 
+    
+    DataTable(Soil,1,-1)
+        DataInterval(0,30,Min,0)        
+        Average(1,SoilTemp_1,FP2,False)
+        Average(1,SoilTemp_2,FP2,False)        
+        Average(1,CS616_1_per,FP2,False)
+        Average(1,CS616_2_per,FP2,False)        
+    EndTable
+    
+''''''''''''''''''
+''''''''''''''''''
+'' Main Program ''
+''''''''''''''''''
+''''''''''''''''''
+BeginProg
+    Scan (60,Sec,0,0)
+    '''''''''''''''''''''''''
+    '''''''''''''''''''''''''
+    '' Measure Diagnostics ''
+    '''''''''''''''''''''''''
+    '''''''''''''''''''''''''
+        PanelTemp (PTemp,_60Hz)
+        Battery (Batt_volt)
+        p_sig = Signature
+
+    '''''''''''''''''''''''''''
+    '''''''''''''''''''''''''''
+    '' Measure Precipitation ''
+    '''''''''''''''''''''''''''
+    '''''''''''''''''''''''''''
+        PulseCount (Precip,1,1 ,2,0,0.1,0)
+
+    '''''''''''''''''''''''''''
+    '''''''''''''''''''''''''''
+    '' Measure Anemometer  ''''
+    '''''''''''''''''''''''''''
+    '''''''''''''''''''''''''''
+        PulseCount (WindSpeed,1 ,2 ,2, 1,0.8,0.447)
+
+    ''''''''''''''''''''
+    ''''''''''''''''''''
+    '' Measure CS616s ''
+    ''''''''''''''''''''
+    ''''''''''''''''''''
+        If IfTime (0,5,Min) Then
+            CS616 (CS616_1_per,1,3,3,4,1.0,0)
+            CS616 (CS616_2_per,1,4,3,4,1.0,0)
+        EndIf
+        
+    ''''''''''''''''''
+    ''''''''''''''''''
+    '' Measure 107s ''
+    ''''''''''''''''''
+    ''''''''''''''''''
+        If IfTime (0,5,Min) Then    
+            Therm107 (SoilTemp_1,1,5,Vx1,0,250,1.0,0)
+            Therm107 (SoilTemp_2,1,6,Vx1,0,250,1.0,0)
+        EndIf
+        
+    '''''''''''''''''''''''''''''''''''
+    '''''''''''''''''''''''''''''''''''
+    '' Measure Multiplexer Sensors   ''
+    '''''''''''''''''''''''''''''''''''
+    '''''''''''''''''''''''''''''''''''
+        PortSet(2,1)  'multiplexer on
+        
+    ''''''''''''''''''''''''''''
+    '' HMP45C Air Temperature ''
+    ''''''''''''''''''''''''''''
+        PulsePort(1,10000)  ' Move to first Set on Mux
+        PortSet(9,1)  
+        Delay(0,150,msec)
+        VoltDiff (AirTemp,1,mV2500,1,True ,0,250,0.1,-40)
+
+    ''''''''''''''''''''''''''''''
+    '' HMP45C Relative Humidity ''
+    ''''''''''''''''''''''''''''''
+
+        PulsePort(1,10000)  ' Move to second Set on Mux
+        VoltDiff (RelativeHumidity,1,mV2500,1,True ,0,250,0.1,0)
+        PortSet(9,0)
+        DewPoint (DewTemp,AirTemp,RelativeHumidity)
+        
+
+    '''''''''''''''''''''
+    '' Sap Flow Probes ''
+    '''''''''''''''''''''
+        For i = 1 To 5  'loop for sap flow probes
+            PulsePort(1,10000)
+            VoltDiff(Sap_Diff(i),1,mV2_5,1,True ,0,250,25,0)
+        Next i
+
+    '''''''''''''''''''''''''''''
+    '' Sap Flow Heater Voltage ''
+    '''''''''''''''''''''''''''''       
+        For i = 1 To 2  'loop to measure the voltage being supplied to sap flow heaters (2 channels, <5v each)
+          PulsePort(1,10000)
+          VoltDiff(Sap_Volt(i),1,AutoRange,1,True,0,250,1,0)
+        Next i
+
+    '''''''''''''''''''''
+    '' Sap Flow Probes ''
+    '''''''''''''''''''''
+        For i = 1 To 5  'loop for sap flow probes
+            PulsePort(1,10000)
+            VoltDiff(Sap_Diff2012(i),1,mV2_5,1,True ,0,250,25,0)
+        Next i
+
+    '''''''''''''''''''''
+    '' Net Radiometers ''
+    '''''''''''''''''''''
+
+        PulsePort(1,10000)
+        VoltDiff(NetRad1,1,AutoRange,1,True ,0,250,1,0)
+        PulsePort(1,10000)
+        VoltDiff(NetRad2,1,AutoRange,1,True ,0,250,1,0)      
+      
+        PortSet(2,0)  'multiplexer off
+
+    ''''''''''''''''''''''''
+    ''''''''''''''''''''''''
+    '' Call Output Tables ''
+    ''''''''''''''''''''''''
+    ''''''''''''''''''''''''
+
+        CallTable Diagnostic
+        CallTable SapFlow
+        CallTable Soil
+        CallTable Met
+
+    NextScan
+EndProg
+
